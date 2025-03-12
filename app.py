@@ -81,7 +81,7 @@ def update_stock_price(ticker, n, is_dark_mode):
         latest_price = stock_data.fast_info["lastPrice"]
         price_text = f"Current Price: ${latest_price:.2f}"
 
-        stock_price = stock_data.history(period="1d", interval="1m")  # Using new default
+        stock_price = stock_data.history(period="1d", interval="1m")
 
         if stock_price.empty:
             return f"Invalid Ticker: {ticker}", go.Figure()

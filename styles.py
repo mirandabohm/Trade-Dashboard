@@ -9,14 +9,14 @@ light_theme = {
 }
 
 dark_theme = {
-    "background": "#2C2C2C",  # Charcoal for a softer dark mode
+    "background": "#2C2C2C",  
     "text": "#E0E0E0",
     "graph_bg": "#3A3A3A",
     "graph_text": "#FFFFFF",
     "font": "Arial, sans-serif"
 }
 
-# ✅ Move global page styles here
+# Function to return global styles based on the selected theme
 def get_global_styles(selected_theme):
     theme = dark_theme if selected_theme == "dark" else light_theme
     return {

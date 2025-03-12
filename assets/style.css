@@ -1,6 +1,6 @@
 /* style.css */
 
-/* 🔹 This ensures smooth transitions when switching themes */
+/* Theme */
 #page-content {
     transition: background-color 0.5s ease, color 0.5s ease;
 }
