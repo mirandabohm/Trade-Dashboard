@@ -1,0 +1,17 @@
+/* style.css */
+
+/* 🔹 This ensures smooth transitions when switching themes */
+#page-content {
+    transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5em;
+}
+
+.theme-toggle label {
+    margin-left: 10px;
+}
