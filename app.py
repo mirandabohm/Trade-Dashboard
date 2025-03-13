@@ -20,8 +20,8 @@ Version: 1.0
 """
 
 import dash
-import dash_bootstrap_components as dbc  # Import Bootstrap Components
 from dash import dcc, html
+import dash_bootstrap_components as dbc  # For improved styling
 from dash.dependencies import Input, Output
 import plotly.graph_objects as go
 import yfinance as yf
@@ -30,70 +30,83 @@ from styles import light_theme, dark_theme, get_global_styles  # Import styles
 # Initialize the Dash app
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
+# Define available periods and intervals
+period_options = ["1d", "5d", "1mo", "3mo", "1y"]
+interval_options = ["1m", "5m", "15m", "1h", "1d"]
+
 # Define Layout
 app.layout = html.Div([
-    html.H1("Real-Time Financial Dashboard", id="title", style={"textAlign": "center"}),
+    html.H1("Real-Time Financial Dashboard", style={"textAlign": "center", "marginBottom": "20px"}),
 
-    # Dark Mode Toggle Switch
+    dbc.Switch(
+        id="theme-switch",
+        value=False,  # Default: Light Mode
+        className="theme-toggle",
+        style={"textAlign": "center", "marginBottom": "20px"}
+    ),
+
     html.Div([
-        html.Label(""),
-        dbc.Switch(
-            id="theme-switch",
-            label="",
-            value=False,  # Default: Light Mode
-            className="theme-toggle"
-        )
-    ], style={"textAlign": "center", "marginBottom": "20px"}),
+        html.Div([
+            html.H2("📈 Stock Market Data"),
+            dcc.Input(id="stock-input", type="text", value="AAPL", debounce=True, 
+                      style={"marginBottom": "10px", "width": "100%"}),
+            html.Div(id="live-price", children="💲 Current Price: (Loading...)"),
+            dcc.Graph(id="stock-chart", figure={}),
+            
+            # Period Selection Buttons
+            html.Div([
+                html.H5("Select Time Period:"),
+                *[dbc.Button(period, id={"type": "period-button", "index": period}, 
+                             color="primary", outline=True, className="me-1") for period in period_options]
+            ], style={"marginTop": "10px", "textAlign": "center"}),
 
-    # Stock Input
-    dcc.Input(id="stock-input", type="text", value="AAPL", debounce=True, style={'marginRight': '10px'}),
+            # Interval Selection Buttons
+            html.Div([
+                html.H5("Select Candlestick Interval:"),
+                *[dbc.Button(interval, id={"type": "interval-button", "index": interval}, 
+                             color="secondary", outline=True, className="me-1") for interval in interval_options]
+            ], style={"marginTop": "10px", "textAlign": "center"}),
+        ], style={"width": "50%", "display": "inline-block", "padding": "20px", "verticalAlign": "top"}),
 
-    # Live Price Display
-    html.Div(id="live-price", style={'fontSize': 24, 'marginTop': 10}),
-
-    # Stock Price Graph
-    dcc.Graph(id="stock-chart"),
-
-    # Auto-update interval
-    dcc.Interval(id='interval-component', interval=5*1000, n_intervals=0)
-], id="page-content", style={"minHeight": "100vh"})  # Ensures full-page styling
-
-# Callback to update theme dynamically
-@app.callback(
-    Output("page-content", "style"),
-    Input("theme-switch", "value")
-)
-def update_theme(is_dark_mode):
-    selected_theme = "dark" if is_dark_mode else "light"
-    return get_global_styles(selected_theme)
+        # Macro Indicators & News
+        html.Div([
+            html.H2("🌎 Macroeconomic Indicators"),
+            html.Div(id="macro-data", children=[
+                html.Div("📉 10-Year Treasury Yield: (Loading...)", id="treasury-yield"),
+                html.Div("💹 Inflation (CPI): (Loading...)", id="inflation"),
+                html.Div("🛢️ Gold, Oil, Bitcoin: (Loading...)", id="commodities"),
+            ]),
+            html.H2("📰 Financial News"),
+            html.Div(id="news-feed", children="Latest headlines will go here..."),
+        ], style={"width": "50%", "display": "inline-block", "padding": "20px", "verticalAlign": "top"}),
+    ], style={"display": "flex", "justifyContent": "space-between"}),  
+], id="page-content")  # ✅ Ensures dark mode applies globally
 
 # Callback to update stock price & chart
 @app.callback(
     [Output("live-price", "children"), Output("stock-chart", "figure")],
-    [Input("stock-input", "value"), Input("interval-component", "n_intervals"), Input("theme-switch", "value")]
+    [Input("stock-input", "value"), Input("theme-switch", "value"),
+     Input({"type": "period-button", "index": dash.ALL}, "n_clicks"),
+     Input({"type": "interval-button", "index": dash.ALL}, "n_clicks")]
 )
-def update_stock_price(ticker, n, is_dark_mode):
+def update_stock_price(ticker, is_dark_mode, period_clicks, interval_clicks):
     selected_theme = "dark" if is_dark_mode else "light"
-    print(f"Fetching stock data for: {ticker}")  # Debugging print
+    period = period_options[next((i for i, v in enumerate(period_clicks) if v), 0)]  # Default to first option if no click
+    interval = interval_options[next((i for i, v in enumerate(interval_clicks) if v), 0)]  # Default to first option if no click
+    print(f"Fetching stock data for: {ticker} with period={period} and interval={interval}")  # Debugging print
 
     try:
         stock_data = yf.Ticker(ticker)
         latest_price = stock_data.fast_info["lastPrice"]
         price_text = f"Current Price: ${latest_price:.2f}"
 
-        stock_price = stock_data.history(period="1d", interval="1m")
+        stock_price = stock_data.history(period=period, interval=interval)
 
         if stock_price.empty:
             return f"Invalid Ticker: {ticker}", go.Figure()
 
         # Select theme colors
         theme = dark_theme if selected_theme == "dark" else light_theme
-
-        # Define candlestick colors
-        candlestick_colors = dict(
-            increasing_line_color="lime" if selected_theme == "dark" else "green",
-            decreasing_line_color="red"
-        )
 
         # Create the candlestick chart
         fig = go.Figure()
@@ -103,16 +116,17 @@ def update_stock_price(ticker, n, is_dark_mode):
             high=stock_price["High"],
             low=stock_price["Low"],
             close=stock_price["Close"],
-            **candlestick_colors  # Apply correct colors
+            increasing_line_color="lime" if selected_theme == "dark" else "green",
+            decreasing_line_color="red"
         ))
 
         fig.update_layout(
             title=f"{ticker} Stock Price",
             xaxis_title="Time",
             yaxis_title="Price ($)",
-            plot_bgcolor=theme["graph_bg"],  # Graph background
+            plot_bgcolor=theme["graph_bg"],
             paper_bgcolor=theme["graph_bg"],
-            font=dict(color=theme["graph_text"]),  # Font color
+            font=dict(color=theme["graph_text"]),
             xaxis=dict(gridcolor="gray"),
             yaxis=dict(gridcolor="gray")
         )
@@ -122,6 +136,23 @@ def update_stock_price(ticker, n, is_dark_mode):
     except Exception as e:
         print(f"Error fetching data for {ticker}: {e}")
         return f"Error: {str(e)}", go.Figure()
+
+# Callback to update page theme
+@app.callback(
+    Output("page-content", "style"),
+    Input("theme-switch", "value")
+)
+def update_theme(is_dark_mode):
+    theme = dark_theme if is_dark_mode else light_theme
+    return {
+        "backgroundColor": theme["background"],  
+        "color": theme["text"],  
+        "height": "100vh",  
+        "width": "100vw",
+        "fontFamily": "Arial, sans-serif",  
+        "padding": "20px",
+        "transition": "background-color 0.5s ease"
+    }
 
 # Run the app
 if __name__ == "__main__":
